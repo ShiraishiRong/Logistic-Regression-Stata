@@ -1,0 +1,123 @@
+merge 1:1 ID using Edu.dta,gen(merge_1)
+merge 1:1 ID using Medical.dta,gen(merge_2)
+merge 1:1 ID using Health.dta,gen(merge_3)
+merge 1:1 ID using Children.dta,gen(merge_4)
+merge 1:1 ID using Age.dta,gen(merge_5)
+
+*-Recode
+replace Pension=0 if Pension==2
+replace Pension=1 if Pension==1
+
+replace Gender=0 if Gender==2
+replace Gender=1 if Gender==1
+
+
+replace Marital =1 if Marital<=3
+replace Marital=0 if Marital>3
+
+replace Medical_Insurance=1 if Medical_Insurance==4
+replace Medical_Insurance=0 if Medical_Insurance==0
+
+
+replace Private_Insurance=1 if Private_Insurance==8
+replace Private_Insurance=0 if Private_Insurance==0
+
+
+*-sum
+asdoc sum Pension-Age
+
+*-1
+logit Pension Gender Education
+est store a
+
+
+*-2
+logit Pension Gender Education Marital Medical_Insurance Private_Insurance
+est store b
+
+*-3
+logit Pension Gender Education Marital Medical_Insurance Private_Insurance Health Age
+est store c
+
+
+
+* 结果对比      
+      local mm "a b c"
+      local ss "N r2_p" 
+      asdoc esttab `mm',mtitle(`mm') star(* 0.1 ** 0.05 *** 0.01) scalar(`ss')
+	  
+reg Pension Gender Education Marital Medical_Insurance Private_Insurance Health Age
+asdoc vif
+
+
+logit Pension Gender Education Marital Medical_Insurance Private_Insurance Health Age
+est store c
+
+*** Classification table
+estat classification
+
+** RO Curve 
+lroc 
+
+*** Hosmer-Lemeshow goodness of fit test
+lfit, group(8) table
+
+*** Analysis of residuals
+
+*** Generate predicted probabilities
+predict p
+
+*** Predict standardized residuals
+predict stdres, rstand
+
+*** Scatterplot of standardized residuals and predicted probabilities
+scatter stdres p, mlabel(ID) yline(0)
+
+*** Predict deviance residuals
+predict dv, dev
+
+*** Produce a scatter plot of deviance residuals over predicted probabilities
+scatter dv p, mlab(ID) yline(0)
+
+*Next we produce a scatter plot of the deviance residuals. 
+
+egen id=group(ID)
+scatter dv id, mlab(ID)
+
+*** Now lets check leverage 
+
+predict hat, hat
+
+scatter hat p, mlab(ID)  yline(0) 
+
+clist if hat>.05 & hat!=. 
+
+
+*** margins for dummy variables
+*** for the comparisons the other variables are kepy at medians, unionist and higher education is set to 0 and know_gay_les is 1 as those are the largest categories
+*Education
+quietly margins, at(Education=(0(1)11) (median) Gender Marital Medical_Insurance Private_Insurance Health Age)
+marginsplot
+*Medical_Insurance
+quietly margins, at(Medical_Insurance=(0(1)1) (median) Gender Education Marital  Private_Insurance Health Age)
+marginsplot
+*Private_Insurance
+quietly margins, at(Private_Insurance=(0(1)1) (median) Gender Education Marital Medical_Insurance  Health Age)
+marginsplot
+*Health
+quietly margins, at(Health=(1(1)5) (median) Gender Education Marital Medical_Insurance Private_Insurance  Age)
+marginsplot
+*Age
+quietly margins, at(Age=(18(5)118) (median) Gender Education Marital Medical_Insurance Private_Insurance Health)
+marginsplot
+
+*** margins for continuous variables
+quietly margins, at(Health=(1(1)5)  (median) Gender Education Marital Medical_Insurance Private_Insurance  Age)
+marginsplot
+
+*Medical_Insurance
+quietly margins, at(Medical_Insurance=(0(1)1) (median) Gender Education Marital  Private_Insurance Health Age)
+marginsplot
+*Private_Insurance
+quietly margins, at(Private_Insurance=(0(1)1) (median) Gender Education Marital Medical_Insurance  Health Age)
+marginsplot
